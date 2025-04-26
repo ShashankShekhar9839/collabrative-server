@@ -1,11 +1,11 @@
 const express = require("express");
-const { Server } = require("socket.io");
 const http = require("http");
+const { Server } = require("socket.io");
 const cors = require("cors");
 
 const app = express();
 
-// Enable CORS to allow frontend to connect
+// Enable CORS for frontend (Vercel URL)
 app.use(
   cors({
     origin: "https://collabrative-board-frontend.vercel.app", // your frontend Vercel URL
@@ -14,7 +14,6 @@ app.use(
   })
 );
 
-// Create HTTP server
 const server = http.createServer(app);
 
 // Set up Socket.IO
@@ -24,27 +23,29 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  path: "/socket.io", // Explicitly set the path if it's needed
+  path: "/socket.io", // Explicitly set the path
 });
 
-// Your application logic here
-let textData = "";
 let drawingData = [];
+let textData = "";
 
 io.on("connection", (socket) => {
   console.log("User Connected", socket.id);
 
-  // Send current state
-  socket.emit("init", { text: textData, drawing: drawingData });
+  // Send current drawing and text state to the new user
+  socket.emit("init-drawing", drawingData);
+  socket.emit("init-text", textData);
 
-  socket.on("text-update", (text) => {
-    textData = text;
-    socket.broadcast.emit("text-update", text);
+  // Listen for drawing updates and broadcast them
+  socket.on("drawing-update", (newDrawingData) => {
+    drawingData.push(newDrawingData); // Save the new drawing data
+    socket.broadcast.emit("drawing-update", newDrawingData); // Broadcast to other users
   });
 
-  socket.on("drawing-update", (draw) => {
-    drawingData.push(draw);
-    socket.broadcast.emit("drawing-update", draw);
+  // Listen for text updates and broadcast them
+  socket.on("text-update", (newText) => {
+    textData = newText; // Update text data
+    socket.broadcast.emit("text-update", newText); // Broadcast to other users
   });
 
   socket.on("disconnect", () => {
